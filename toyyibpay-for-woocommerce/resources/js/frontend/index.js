@@ -5,7 +5,7 @@ import { getSetting } from '@woocommerce/settings';
 
 const settings = getSetting( 'toyyibpay_data', {} );
 
-const defaultLabel = __('ToyyibPay', 'tfw');
+const defaultLabel = __('ToyyibPay', 'toyyibpay-for-woocommerce');
 
 const label = decodeEntities( settings.title ) || defaultLabel;
 

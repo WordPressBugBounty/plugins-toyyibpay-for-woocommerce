@@ -6,7 +6,7 @@ function toyyibpay_links($actions)
 {
     $new_actions = array(
       'settings' => sprintf(
-        '<a href="%1$s">%2$s</a>', admin_url('admin.php?page=wc-settings&tab=checkout&section=toyyibpay'), esc_html__('Settings', 'tfw')
+        '<a href="%1$s">%2$s</a>', admin_url('admin.php?page=wc-settings&tab=checkout&section=toyyibpay'), esc_html__('Settings', 'toyyibpay-for-woocommerce')
       )
     );
     return array_merge($new_actions, $actions);

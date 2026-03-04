@@ -1,4 +1,11 @@
 <?php
+/**
+ * Bill Inquiry/Requery Handler
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // Exit if accessed directly
+}
 
 function bill_inquiry($billCode, $OrderId) {
 
