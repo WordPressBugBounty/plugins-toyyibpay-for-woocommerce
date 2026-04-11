@@ -9,19 +9,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 function bill_inquiry($billCode, $OrderId) {
 
-    $order 			= wc_get_order($OrderId);
-    $old_wc 		= version_compare(WC_VERSION, '3.0', '<');
-    $order_id 		= $old_wc ? $order->id : $order->get_id();
+    $order = wc_get_order($OrderId);
+
+    if (!$order) {
+        return;
+    }
+
+    $order_id = $order->get_id();
+
+    // Only proceed if order is still pending or was auto-cancelled
+    if (!in_array($order->get_status(), array('pending', 'cancelled'), true)) {
+        return;
+    }
 
     $settings = get_option('woocommerce_toyyibpay_settings');
 
     $is_sandbox = $settings['enabledev'];
     if ($is_sandbox == "no") {
-
-        $requery 			= 'https://toyyibpay.com/index.php/api/getBillTransactions';
+        $requery = 'https://toyyibpay.com/index.php/api/getBillTransactions';
     } else {
-
-        $requery 			= 'https://dev.toyyibpay.com/index.php/api/getBillTransactions';
+        $requery = 'https://dev.toyyibpay.com/index.php/api/getBillTransactions';
     }
 
     $post_check = array(
@@ -31,20 +38,25 @@ function bill_inquiry($billCode, $OrderId) {
         )
     );
 
-    $request 	= wp_remote_post($requery, $post_check);
-    $response 	= wp_remote_retrieve_body($request);
-    $arr 		= json_decode($response, true);
+    $request = wp_remote_post($requery, $post_check);
 
-    if ($order->get_status() == "pending" && $arr[0]["billpaymentStatus"] == "1") {
+    if (is_wp_error($request)) {
+        $order->add_order_note('toyyibPay requery failed: API is unreachable. Please check payment status manually in your toyyibPay account.<br>Bill Code: ' . sanitize_text_field($billCode));
+        return;
+    }
+
+    $response = wp_remote_retrieve_body($request);
+    $arr      = json_decode($response, true);
+
+    $billpaymentStatus = isset($arr[0]['billpaymentStatus']) ? $arr[0]['billpaymentStatus'] : '';
+    $invoiceNo         = isset($arr[0]['billpaymentInvoiceNo']) ? sanitize_text_field($arr[0]['billpaymentInvoiceNo']) : '';
+
+    if ($billpaymentStatus == "1") {
         $order->payment_complete();
-        $order->add_order_note('Payment successfully made via toyyibPay :)<br> 
-        Ref. No: ' . $arr[0]["billpaymentInvoiceNo"] . '
-        <br>Bill Code: ' . $billCode . '
-        <br>Order ID: ' . $OrderId);
-
-        return;
-    } else {
-        return;
+        $order->add_order_note('Payment successfully made via toyyibPay.<br>
+        Ref. No: ' . esc_html($invoiceNo) . '
+        <br>Bill Code: ' . esc_html($billCode) . '
+        <br>Order ID: ' . $order_id);
     }
 }
 add_action('bill_inquiry', 'bill_inquiry', 0, 2);

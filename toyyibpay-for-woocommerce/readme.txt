@@ -3,7 +3,7 @@ Contributors: toyyibPay, zahiruliman
 Tags: payment gateway, Malaysia, fpx, woocommerce, duitnow
 Requires at least: 6.0
 Tested up to: 6.9
-Stable tag: 2.0.0
+Stable tag: 2.0.1
 Requires PHP: 7.0
 WC requires at least: 7.0
 WC tested up to: 9.5
@@ -97,6 +97,12 @@ Contact us on our [Facebook Page](https://www.facebook.com/toyyibpay) if you hav
 
 == Changelog ==
 
+= 2.0.1 =
+* Improved callback reliability for payment status updates
+* Improved bill requery mechanism with Action Scheduler support
+* Improved return URL security validation
+* Improved error handling for API responses
+
 = 2.0.0 =
 * [NEW] DuitNow QR payment support
 * [NEW] HPOS (High-Performance Order Storage) compatibility
@@ -172,6 +178,9 @@ Contact us on our [Facebook Page](https://www.facebook.com/toyyibpay) if you hav
 * Initial release. Yay!
 
 == Upgrade Notice ==
+
+= 2.0.1 =
+Hotfix: Improved payment callback reliability, bill requery mechanism, and return URL security. Recommended update for all users.
 
 = 2.0.0 =
 Major update: DuitNow QR payment support, HPOS compatibility, WooCommerce Blocks support, and security improvements. Recommended update for all users.

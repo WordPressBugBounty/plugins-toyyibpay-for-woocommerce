@@ -109,7 +109,7 @@ class WC_ToyyibPay_Gateway extends WC_Payment_Gateway {
 
 	private function woocommerce_add_action()
 	{
-		add_action('woocommerce_api_callback', 'check_toyyibpay_callback');
+		add_action('woocommerce_api_callback', array($this, 'check_toyyibpay_callback'));
 	}
 
 	/**
@@ -214,7 +214,7 @@ class WC_ToyyibPay_Gateway extends WC_Payment_Gateway {
 		$description = "Payment for Order No " .  $order_id;
 		$payChannel = $settings['universal_channel'];
 		$extraEmail = $settings['content_email'];
-		$callbackURL = wc_get_endpoint_url('order-received', '', wc_get_checkout_url());
+		$callbackURL = WC()->api_request_url('callback');
 
 		$universal_charge = $settings['universal_charge'];
 
@@ -232,7 +232,7 @@ class WC_ToyyibPay_Gateway extends WC_Payment_Gateway {
 		$name     = $customer_order->get_billing_first_name() . ' ' . $customer_order->get_billing_last_name();
 		$email    = $customer_order->get_billing_email();
 		$phone    = $customer_order->get_billing_phone();
-		$returnURL = wc_get_endpoint_url('order-received', '', wc_get_checkout_url());
+		$returnURL = add_query_arg('key', $customer_order->get_order_key(), wc_get_endpoint_url('order-received', '', wc_get_checkout_url()));
 
 		if ($name == NULL || $phone == NULL || $email == NULL) {
 			wc_add_notice('Error! Please complete your details (Name, phone, and e-mail are compulsory).', 'error');
@@ -320,7 +320,7 @@ class WC_ToyyibPay_Gateway extends WC_Payment_Gateway {
 				'billEwalletCTCustomer'		=>	$CTCustomerEwallet,
 				'enableDuitNowQR'			=>	$enableDuitNowQR,
 				'chargeDuitNowQR'			=>	$chargeDuitNowQR,
-				'billASPCode'				=>  'toyyibPay-V1-WCV2.0.0'
+				'billASPCode'				=>  'toyyibPay-V1-WCV2.0.1'
 			)
 		);
 
@@ -355,7 +355,13 @@ class WC_ToyyibPay_Gateway extends WC_Payment_Gateway {
 
 			// Use 6 minutes for DuitNow QR (QR expires in 5 min), 3 minutes for other payments
 			$requery_delay = ($enableDuitNowQR == '1') ? 6 * MINUTE_IN_SECONDS : 3 * MINUTE_IN_SECONDS;
-			wp_schedule_single_event(time() + $requery_delay, 'bill_inquiry', $arguments);
+
+			// Use Action Scheduler (bundled with WooCommerce) for more reliable scheduling
+			if (function_exists('as_schedule_single_action')) {
+				as_schedule_single_action(time() + $requery_delay, 'bill_inquiry', $arguments, 'toyyibpay');
+			} else {
+				wp_schedule_single_event(time() + $requery_delay, 'bill_inquiry', $arguments);
+			}
 
 			$order_note->add_order_note('Customer made a payment attempt via toyyibPay.<br>Bill Code : ' . sanitize_text_field($billCode) . '<br>You can check the payment status of this bill in toyyibPay account.');
 
@@ -385,13 +391,23 @@ class WC_ToyyibPay_Gateway extends WC_Payment_Gateway {
 	public function check_toyyibpay_response()
 	{
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- External payment gateway return URL
-		if (isset($_REQUEST['status_id']) && isset($_REQUEST['billcode']) && isset($_REQUEST['order_id']) && isset($_REQUEST['msg']) && isset($_REQUEST['transaction_id'])) {
-			$order_id_raw = absint(wp_unslash($_REQUEST['order_id']));
-			$status_id    = sanitize_text_field(wp_unslash($_REQUEST['status_id']));
+		// Use $_GET only — the return URL is a browser redirect (GET).
+		// Using $_REQUEST would also match callback POST data and intercept it.
+		if (isset($_GET['status_id']) && isset($_GET['billcode']) && isset($_GET['order_id']) && isset($_GET['msg']) && isset($_GET['transaction_id'])) {
+			$order_id_raw = absint(wp_unslash($_GET['order_id']));
+			$status_id    = sanitize_text_field(wp_unslash($_GET['status_id']));
+			$order_key    = isset($_GET['key']) ? sanitize_text_field(wp_unslash($_GET['key'])) : '';
 
 			$order = wc_get_order($order_id_raw);
 
 			if ($order && $order->get_id() != 0) {
+
+				// Validate order key to prevent spoofed return URLs
+				if (!$order->key_is_valid($order_key)) {
+					wc_add_notice(__('Invalid order key. Please contact the site administrator.', 'toyyibpay-for-woocommerce'), 'error');
+					wp_safe_redirect(wc_get_checkout_url());
+					exit;
+				}
 
 				if ($status_id == '1') {
 
@@ -535,9 +551,15 @@ class WC_ToyyibPay_Gateway extends WC_Payment_Gateway {
 							);
 
 							$requestCheck = wp_remote_post($urlCheck, $post_check);
+
+							if (is_wp_error($requestCheck)) {
+								$order->add_order_note('Payment status could not be verified. toyyibPay API is unreachable. Please check manually in your toyyibPay account.');
+								return;
+							}
+
 							$responseCheck = wp_remote_retrieve_body($requestCheck);
 							$arrCheck = json_decode($responseCheck, true);
-							$billpaymentStatus = $arrCheck[0]['billpaymentStatus'];
+							$billpaymentStatus = isset($arrCheck[0]['billpaymentStatus']) ? $arrCheck[0]['billpaymentStatus'] : '';
 
 							if ($billpaymentStatus == 1 || $billpaymentStatus == "1") {
 

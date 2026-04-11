@@ -3,7 +3,7 @@
  * Plugin Name: toyyibPay for WooCommerce
  * Plugin URI: https://wordpress.org/plugins/toyyibpay-for-woocommerce/#installation
  * Description: Integrate your WooCommerce site with toyyibPay Payment Gateway.
- * Version: 2.0.0
+ * Version: 2.0.1
  * Author: toyyibPay
  * Author URI: https://toyyibpay.com
  * Requires at least: 6.0
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly
 }
 
-define('TFW_PLUGIN_VER', '2.0.0');
+define('TFW_PLUGIN_VER', '2.0.1');
 define('TFW_MIN_PHP_VER', '7.0');
 define('TFW_MIN_WOOCOMMERCE_VER', '7.0');
 define('TFW_PLUGIN_FILE', __FILE__);
@@ -227,5 +227,6 @@ function toyyibpay_check_response() {
 
 	$toyyibpay = new WC_ToyyibPay_Gateway();
 	$toyyibpay->check_toyyibpay_response();
-	$toyyibpay->check_toyyibpay_callback();
+	// Callback is handled exclusively via WC-API endpoint (/wc-api/callback/)
+	// to preserve POST data. See woocommerce_api_callback action in gateway class.
 }
